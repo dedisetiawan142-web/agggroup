@@ -23,7 +23,7 @@
         }
     </style>
 </head>
-<body x-data="appData()" x-init="initApp()" class="text-gray-800 antialiased overflow-x-hidden h-screen flex flex-col">
+<body x-data="appData" class="text-gray-800 antialiased overflow-x-hidden h-screen flex flex-col">
 
     <!-- Notification Toast -->
     <div x-cloak x-show="notification.show" 
@@ -39,7 +39,6 @@
             <div class="text-center mb-8">
                 <h1 class="text-2xl font-bold text-blue-900 tracking-tight">AG GROUP</h1>
                 <p class="text-gray-500 text-sm">Sistem Manajemen Terintegrasi</p>
-                <p class="text-xs text-blue-600 mt-2 font-medium">Superadmin Login: superadmin / superadmin</p>
             </div>
             <form @submit.prevent="login" class="space-y-5">
                 <div>
@@ -1659,7 +1658,7 @@
                     </div>
                     <div>
                         <label class="block font-medium mb-1">Lampiran Bukti Penerimaan</label>
-                        <input type="file" accept="image/*" @change="handleFileUpload($event, { setImg(url) { this.debtImage = url; }})" class="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
+                        <input type="file" accept="image/*" @change="handleFileUploadDebt($event)" class="w-full text-xs text-gray-500 file:mr-2 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
                     </div>
                 </div>
                 <div class="mt-6 flex justify-end space-x-3">
@@ -1679,8 +1678,8 @@
     </div>
 
     <script>
-        function appData() {
-            return {
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('appData', () => ({
                 isLoggedIn: false,
                 loginForm: { username: '', password: '' },
                 loginError: '',
@@ -1703,6 +1702,16 @@
                     const reader = new FileReader();
                     reader.onload = (e) => {
                         targetObj.image = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                },
+
+                handleFileUploadDebt(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        this.debtImage = e.target.result;
                     };
                     reader.readAsDataURL(file);
                 },
@@ -1844,15 +1853,52 @@
                     { id: 'system', name: 'Sistem & Data', icon: '⚙️' }
                 ],
 
-                initApp() {
+                init() {
+                    const saved = localStorage.getItem('ag_group_residence_db');
+                    if (saved) {
+                        try {
+                            const p = JSON.parse(saved);
+                            if (p.rooms) this.rooms = p.rooms;
+                            if (p.transactions) this.transactions = p.transactions;
+                            if (p.deletedTransactionLogs) this.deletedTransactionLogs = p.deletedTransactionLogs;
+                            if (p.inventoryItems) this.inventoryItems = p.inventoryItems;
+                            if (p.posHistory) this.posHistory = p.posHistory;
+                            if (p.employees) this.employees = p.employees;
+                            if (p.guests) this.guests = p.guests;
+                            if (p.branches) this.branches = p.branches;
+                            if (p.users) this.users = p.users;
+                            if (p.accounts) this.accounts = p.accounts;
+                            if (p.pendingRestocks) this.pendingRestocks = p.pendingRestocks;
+                            if (p.pendingPayrolls) this.pendingPayrolls = p.pendingPayrolls;
+                            if (p.payrollHistory) this.payrollHistory = p.payrollHistory;
+                        } catch (e) {
+                            console.error("Error loading localStorage", e);
+                        }
+                    } else {
+                        const prefix = new Date().toISOString().slice(0,8);
+                        if(this.transactions.length === 0) {
+                            this.transactions.push({ id: 'tx1', date: prefix + '10', type: 'Pemasukan', amount: 1500000, desc: 'Sewa Kosan K-01', debitAccountId: '1101', creditAccountId: '4101', branch: 'Cabang A (Pusat)', image: '' });
+                        }
+                    }
+
                     const today = new Date().toISOString().slice(0,10);
                     this.checkInForm.date = today;
                     this.manualForm.date = today;
 
-                    if(this.transactions.length === 0) {
-                        const prefix = new Date().toISOString().slice(0,8);
-                        this.transactions.push({ id: 'tx1', date: prefix + '10', type: 'Pemasukan', amount: 1500000, desc: 'Sewa Kosan K-01', debitAccountId: '1101', creditAccountId: '4101', branch: 'Cabang A (Pusat)', image: '' });
-                    }
+                    // Watchers to auto-save to localStorage
+                    this.$watch('rooms', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('transactions', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('deletedTransactionLogs', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('inventoryItems', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('posHistory', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('employees', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('guests', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('branches', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('users', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('accounts', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('pendingRestocks', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('pendingPayrolls', () => this.saveToLocalStorage(), { deep: true });
+                    this.$watch('payrollHistory', () => this.saveToLocalStorage(), { deep: true });
 
                     this.$watch('activeBranch', () => { this.renderRevenueChart(); });
                     this.$watch('filterMonth', () => { this.renderRevenueChart(); });
@@ -1860,6 +1906,32 @@
                         if (val === 'dashboard') this.renderRevenueChart();
                         else if (this.chartInstance) { this.chartInstance.destroy(); this.chartInstance = null; }
                     });
+                },
+
+                saveToLocalStorage() {
+                    try {
+                        const data = {
+                            rooms: Alpine.raw(this.rooms),
+                            transactions: Alpine.raw(this.transactions),
+                            deletedTransactionLogs: Alpine.raw(this.deletedTransactionLogs),
+                            inventoryItems: Alpine.raw(this.inventoryItems),
+                            posHistory: Alpine.raw(this.posHistory),
+                            employees: Alpine.raw(this.employees),
+                            guests: Alpine.raw(this.guests),
+                            branches: Alpine.raw(this.branches),
+                            users: Alpine.raw(this.users),
+                            accounts: Alpine.raw(this.accounts),
+                            pendingRestocks: Alpine.raw(this.pendingRestocks),
+                            pendingPayrolls: Alpine.raw(this.pendingPayrolls),
+                            payrollHistory: Alpine.raw(this.payrollHistory)
+                        };
+                        localStorage.setItem('ag_group_residence_db', JSON.stringify(data));
+                    } catch (e) {
+                        console.error("Storage failed:", e);
+                        if (e.name === 'QuotaExceededError' || e.code === 22) {
+                            alert('Peringatan: Kapasitas penyimpanan penuh karena terlalu banyak lampiran foto! Harap lakukan reset data/riwayat.');
+                        }
+                    }
                 },
 
                 getRoomTimeRemaining(room) {
@@ -2727,7 +2799,10 @@
                         posHistory: this.posHistory,
                         inventoryItems: this.inventoryItems,
                         employees: this.employees,
-                        guests: this.guests
+                        guests: this.guests,
+                        pendingRestocks: this.pendingRestocks,
+                        pendingPayrolls: this.pendingPayrolls,
+                        payrollHistory: this.payrollHistory
                     };
                     const jsonStr = JSON.stringify(data, null, 2);
                     const blob = new Blob([jsonStr], { type: 'application/json' });
@@ -2747,18 +2822,37 @@
                     reader.onload = (e) => {
                         try {
                             const parsed = JSON.parse(e.target.result);
-                            if (parsed.branches) this.branches = parsed.branches;
-                            if (parsed.users) this.users = parsed.users;
-                            if (parsed.accounts) this.accounts = parsed.accounts;
-                            if (parsed.transactions) this.transactions = parsed.transactions;
-                            if (parsed.deletedTransactionLogs) this.deletedTransactionLogs = parsed.deletedTransactionLogs;
-                            if (parsed.rooms) this.rooms = parsed.rooms;
-                            if (parsed.posHistory) this.posHistory = parsed.posHistory;
-                            if (parsed.inventoryItems) this.inventoryItems = parsed.inventoryItems;
-                            if (parsed.employees) this.employees = parsed.employees;
-                            if (parsed.guests) this.guests = parsed.guests;
-                            this.showNotification('Restore data berhasil dilakukan.');
+                            
+                            // Fungsi helper untuk merubah array tanpa memutus reactivity
+                            const updateArray = (target, source) => {
+                                if (source && Array.isArray(source)) {
+                                    target.splice(0, target.length, ...source);
+                                }
+                            };
+
+                            updateArray(this.branches, parsed.branches);
+                            updateArray(this.users, parsed.users);
+                            updateArray(this.accounts, parsed.accounts);
+                            updateArray(this.transactions, parsed.transactions);
+                            updateArray(this.deletedTransactionLogs, parsed.deletedTransactionLogs);
+                            updateArray(this.rooms, parsed.rooms);
+                            updateArray(this.posHistory, parsed.posHistory);
+                            updateArray(this.inventoryItems, parsed.inventoryItems);
+                            updateArray(this.employees, parsed.employees);
+                            updateArray(this.guests, parsed.guests);
+                            updateArray(this.pendingRestocks, parsed.pendingRestocks);
+                            updateArray(this.pendingPayrolls, parsed.pendingPayrolls);
+                            updateArray(this.payrollHistory, parsed.payrollHistory);
+
+                            this.saveToLocalStorage();
+                            
+                            this.showNotification('Restore data berhasil. Memuat ulang sistem...');
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 1500);
+
                         } catch (err) {
+                            console.error('Restore Error:', err);
                             this.showNotification('Format file backup tidak valid!', 'error');
                         }
                     };
@@ -2775,45 +2869,44 @@
                 executeSystemReset() {
                     if (!confirm('PERINGATAN: Data yang dipilih akan dihapus permanen dan dikembalikan ke kondisi template default. Lanjutkan?')) return;
 
-                    if (this.resetOptions.transactions) {
-                        this.transactions = [];
-                        this.deletedTransactionLogs = [];
-                    }
-                    if (this.resetOptions.guests) {
-                        this.guests = [];
-                    }
-                    if (this.resetOptions.inventory) {
-                        this.inventoryItems = [
-                            { id: 'i1', name: 'Nasi Goreng Spesial', category: 'Makanan', stock: 25, unit: 'Porsi', sellPrice: 45000, icon: '🍛', tempRestockQty: '', tempRestockPrice: '', tempRestockAccount: '1101', branch: 'Cabang A (Pusat)' },
-                            { id: 'i2', name: 'Es Teh Manis', category: 'Minuman', stock: 50, unit: 'Gelas', sellPrice: 15000, icon: '🥤', tempRestockQty: '', tempRestockPrice: '', tempRestockAccount: '1101', branch: 'Cabang A (Pusat)' },
-                            { id: 'i3', name: 'Kopi Hitam', category: 'Minuman', stock: 30, unit: 'Cangkir', sellPrice: 20000, icon: '☕', tempRestockQty: '', tempRestockPrice: '', tempRestockAccount: '1101', branch: 'Cabang B' },
-                            { id: 'i4', name: 'Handuk Hotel Premium', category: 'Amenitis', stock: 15, unit: 'Pcs', sellPrice: 75000, icon: '🧴', tempRestockQty: '', tempRestockPrice: '', tempRestockAccount: '1101', branch: 'Cabang A (Pusat)' },
-                            { id: 'i5', name: 'Sabun & Shampoo Set', category: 'Amenitis', stock: 40, unit: 'Set', sellPrice: 15000, icon: '🧼', tempRestockQty: '', tempRestockPrice: '', tempRestockAccount: '1101', branch: 'Cabang A (Pusat)' },
-                            { id: 'i6', name: 'Air Mineral Galon', category: 'Lainnya', stock: 10, unit: 'Galon', sellPrice: 20000, icon: '💧', tempRestockQty: '', tempRestockPrice: '', tempRestockAccount: '1101', branch: 'Cabang A (Pusat)' }
-                        ];
-                        this.pendingRestocks = [];
-                    }
-                    if (this.resetOptions.employees) {
-                        this.employees = [
-                            { id: 'e1', name: 'Siti', position: 'Front Desk', baseSalary: 3500000, branch: 'Cabang A (Pusat)' }
-                        ];
-                        this.pendingPayrolls = [];
-                        this.payrollHistory = [];
-                    }
-                    if (this.resetOptions.rooms) {
-                        this.rooms = [
-                            { no: 'K-01', type: 'Kosan', status: 'Tersedia', price: 1500000, branch: 'Cabang A (Pusat)', guestName: '', checkInDate: '', checkInTime: '', checkOutDate: '', checkOutTime: '', stayType: 'Full Day', totalBill: 0, paidAmount: 0 },
-                            { no: '101', type: 'Standard Room', status: 'Tersedia', price: 350000, branch: 'Cabang A (Pusat)', guestName: '', checkInDate: '', checkInTime: '', checkOutDate: '', checkOutTime: '', stayType: 'Full Day', totalBill: 0, paidAmount: 0 }
-                        ];
-                    }
-                    if (this.resetOptions.posHistory) {
-                        this.posHistory = [];
-                    }
+                    try {
+                        if (this.resetOptions.transactions) {
+                            this.transactions.splice(0, this.transactions.length);
+                            this.deletedTransactionLogs.splice(0, this.deletedTransactionLogs.length);
+                        }
+                        if (this.resetOptions.guests) {
+                            this.guests.splice(0, this.guests.length);
+                        }
+                        if (this.resetOptions.inventory) {
+                            this.inventoryItems.splice(0, this.inventoryItems.length);
+                            this.pendingRestocks.splice(0, this.pendingRestocks.length);
+                        }
+                        if (this.resetOptions.employees) {
+                            this.employees.splice(0, this.employees.length);
+                            this.pendingPayrolls.splice(0, this.pendingPayrolls.length);
+                            this.payrollHistory.splice(0, this.payrollHistory.length);
+                        }
+                        if (this.resetOptions.rooms) {
+                            this.rooms.splice(0, this.rooms.length);
+                        }
+                        if (this.resetOptions.posHistory) {
+                            this.posHistory.splice(0, this.posHistory.length);
+                        }
 
-                    this.showNotification('Reset data terpilih berhasil. Data template dipertahankan.');
+                        this.saveToLocalStorage();
+                        
+                        this.showNotification('Reset data berhasil. Memuat ulang sistem...');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+
+                    } catch (err) {
+                        console.error('Error saat mereset data:', err);
+                        this.showNotification('Terjadi kesalahan saat mereset data', 'error');
+                    }
                 }
-            }
-        }
+            }));
+        });
     </script>
 </body>
 </html>
