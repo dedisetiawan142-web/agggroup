@@ -1722,25 +1722,78 @@
                     return { totalIn, breakdown, roomsOccupied: fRooms.length, totalPiutang };
                 },
 
-                updateDashboardChart: () => {
-                    if(this.activeTab !== 'dashboard') return;
-                    let canvas = document.getElementById('omsetChart'); if(!canvas) return;
+                updateDashboardChart() {
+                    if (this.activeTab !== 'dashboard') return;
+                    let canvas = document.getElementById('omsetChart'); 
+                    if (!canvas) return;
+                    
                     let dates = {};
                     let filtered = this.jurnals.filter(j => {
                         let dMatch = (!this.filterDate.start || j.tanggal >= this.filterDate.start) && (!this.filterDate.end || j.tanggal <= this.filterDate.end);
                         return this.isBranchMatch(j.branchId) && dMatch;
                     });
+                    
                     filtered.forEach(j => {
                         j.entries.forEach(e => {
                             let coa = this.coas.find(c => c.name === e.akunName);
-                            if (coa && coa.kategori === 'Aset Lancar' && e.tipe === 'Debit' && coa.name !== 'Piutang Usaha') dates[j.tanggal] = (dates[j.tanggal] || 0) + e.nominal;
+                            // Mengambil hanya kas/bank yang masuk (bukan piutang)
+                            if (coa && coa.kategori === 'Aset Lancar' && e.tipe === 'Debit' && coa.name !== 'Piutang Usaha') {
+                                dates[j.tanggal] = (dates[j.tanggal] || 0) + e.nominal;
+                            }
                         });
                     });
-                    let sortedDates = Object.keys(dates).sort(); let chartData = sortedDates.map(d => dates[d]);
-                    if(this.chartInstance) this.chartInstance.destroy();
-                    this.chartInstance = new Chart(canvas.getContext('2d'), {
-                        type: 'line', data: { labels: sortedDates.length ? sortedDates : ['No Data'], datasets: [{ label: 'Pendapatan Diterima Harian (Rp)', data: chartData.length ? chartData : [0], borderColor: '#2563eb', backgroundColor: 'rgba(37, 99, 235, 0.1)', borderWidth: 3, fill: true, tension: 0.3 }] },
-                        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+                    
+                    let sortedDates = Object.keys(dates).sort(); 
+                    let chartData = sortedDates.map(d => dates[d]);
+                    
+                    // Hindari proxy Alpine.js pada instance Chart yang bisa menyebabkan error
+                    let existingChart = Chart.getChart(canvas);
+                    if (existingChart) existingChart.destroy();
+                    
+                    new Chart(canvas, {
+                        type: 'line', 
+                        data: { 
+                            // Format tanggal menjadi DD/MM/YYYY
+                            labels: sortedDates.length ? sortedDates.map(d => d.split('-').reverse().join('/')) : ['Belum Ada Data'], 
+                            datasets: [{ 
+                                label: 'Omset Harian', 
+                                data: chartData.length ? chartData : [0], 
+                                borderColor: '#2563eb', 
+                                backgroundColor: 'rgba(37, 99, 235, 0.1)', 
+                                borderWidth: 3, 
+                                fill: true, 
+                                tension: 0.4, // Kurva lebih smooth
+                                pointBackgroundColor: '#2563eb',
+                                pointRadius: 4
+                            }] 
+                        },
+                        options: { 
+                            responsive: true, 
+                            maintainAspectRatio: false, 
+                            plugins: { 
+                                legend: { display: false },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return 'Rp ' + new Intl.NumberFormat('id-ID').format(context.raw);
+                                        }
+                                    }
+                                }
+                            }, 
+                            scales: { 
+                                y: { 
+                                    beginAtZero: true,
+                                    ticks: {
+                                        // Disingkat menjadi Juta / Ribu agar sumbu Y rapi
+                                        callback: function(value) {
+                                            if (value >= 1000000) return 'Rp ' + (value / 1000000) + ' Juta';
+                                            if (value >= 1000) return 'Rp ' + (value / 1000) + ' Ribu';
+                                            return 'Rp ' + value;
+                                        }
+                                    }
+                                } 
+                            } 
+                        }
                     });
                 },
 
