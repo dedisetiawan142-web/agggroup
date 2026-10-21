@@ -1880,6 +1880,63 @@
 
     </div>
 
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'ag-residence-app';
+        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
+        
+        if (configStr) {
+            try {
+                const firebaseConfig = JSON.parse(configStr);
+                const app = initializeApp(firebaseConfig);
+                const auth = getAuth(app);
+                const db = getFirestore(app);
+
+                window.initCloudStorage = async (context) => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                        
+                        const user = auth.currentUser;
+                        if (!user) return;
+
+                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'mainState');
+                        const docSnap = await getDoc(docRef);
+                        
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            Object.keys(data).forEach(key => {
+                                if(context[key] !== undefined) context[key] = data[key];
+                            });
+                            window.dataWasLoadedFromCloud = true;
+                        } else {
+                            window.dataWasLoadedFromCloud = false;
+                        }
+                        
+                        context.isDataLoaded = true;
+
+                        window.saveToCloud = async (dataToSave) => {
+                            if (!auth.currentUser) return;
+                            try { await setDoc(docRef, dataToSave); } 
+                            catch(e) { console.error("Gagal auto-save ke cloud:", e); }
+                        };
+                    } catch (err) {
+                        console.error("Gagal sinkronisasi Firebase:", err);
+                        context.isDataLoaded = true;
+                    }
+                };
+            } catch (err) { 
+                console.error("Config Firebase tidak valid:", err); 
+            }
+        }
+    </script>
+
     <script>
         function erpSystem() {
             return {
@@ -1898,6 +1955,8 @@
                 
                 dataOptions: { users: false, coas: false, rooms: false, transactions: false }, pendingRestoreFile: null,
                 sidebarOpen: window.innerWidth >= 1024, currentTime: new Date(), timerInterval: null,
+                
+                isDataLoaded: false, lastSavedState: '',
 
                 menus: [
                     {id: 'dashboard', label: 'Dashboard Utama', icon: 'fas fa-chart-pie'},
@@ -1957,6 +2016,39 @@
                     });
                     
                     this.timerInterval = setInterval(() => { this.currentTime = new Date(); }, 60000);
+                    
+                    // Inisialisasi Cloud Storage
+                    if (window.initCloudStorage) {
+                        window.initCloudStorage(this);
+                    } else {
+                        this.isDataLoaded = true;
+                    }
+                    
+                    // Trigger Auto-Save Background Sinkronisasi (Setiap 2 Detik)
+                    setInterval(() => { this.triggerAutoSave(); }, 2000);
+                },
+
+                triggerAutoSave() {
+                    if (!this.isDataLoaded || !window.saveToCloud) return;
+                    
+                    const currentState = JSON.stringify({
+                        branches: this.branches, users: this.users, coas: this.coas, 
+                        rooms: this.rooms, posItems: this.posItems, inventoryItems: this.inventoryItems, 
+                        piutangTamu: this.piutangTamu, jurnals: this.jurnals, roomHistory: this.roomHistory, 
+                        posHistory: this.posHistory, purchaseRequests: this.purchaseRequests, 
+                        purchaseHistory: this.purchaseHistory, auditTrail: this.auditTrail
+                    });
+                    
+                    if (this.lastSavedState === '') {
+                        this.lastSavedState = currentState;
+                        if (window.dataWasLoadedFromCloud === false) window.saveToCloud(JSON.parse(currentState));
+                        return;
+                    }
+
+                    if (this.lastSavedState !== currentState) {
+                        window.saveToCloud(JSON.parse(currentState));
+                        this.lastSavedState = currentState;
+                    }
                 },
 
                 appAlert(message) { this.customDialog = { show: true, message, isConfirm: false, onConfirm: null }; },
