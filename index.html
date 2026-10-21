@@ -1883,7 +1883,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'ag-residence-app';
         const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
@@ -1906,24 +1906,38 @@
                         const user = auth.currentUser;
                         if (!user) return;
 
-                        const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'appData', 'mainState');
-                        const docSnap = await getDoc(docRef);
+                        // PERBAIKAN: Format jumlah Path Firestore harus genap untuk Dokumen (6 Segmen)
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'state', 'erp_state');
                         
-                        if (docSnap.exists()) {
-                            const data = docSnap.data();
-                            Object.keys(data).forEach(key => {
-                                if(context[key] !== undefined) context[key] = data[key];
-                            });
-                            window.dataWasLoadedFromCloud = true;
-                        } else {
-                            window.dataWasLoadedFromCloud = false;
-                        }
-                        
-                        context.isDataLoaded = true;
+                        // GUNAKAN ONSNAPSHOT: Membaca perubahan data secara Real-Time
+                        onSnapshot(docRef, (docSnap) => {
+                            if (docSnap.exists()) {
+                                // PERBAIKAN: Menarik format String Payload murni agar sistem tidak terganggu perubahan susunan Object di Cloud
+                                const payloadStr = docSnap.data().payload;
+                                
+                                if (payloadStr && context.lastSavedState !== payloadStr) {
+                                    const parsedData = JSON.parse(payloadStr);
+                                    Object.keys(parsedData).forEach(key => {
+                                        if(context[key] !== undefined) context[key] = parsedData[key];
+                                    });
+                                    context.lastSavedState = payloadStr;
+                                    window.dataWasLoadedFromCloud = true;
+                                }
+                            } else {
+                                window.dataWasLoadedFromCloud = false;
+                            }
+                            context.isDataLoaded = true;
+                        }, (error) => {
+                            console.error("Gagal sinkronisasi realtime:", error);
+                            context.isDataLoaded = true;
+                        });
 
                         window.saveToCloud = async (dataToSave) => {
                             if (!auth.currentUser) return;
-                            try { await setDoc(docRef, dataToSave); } 
+                            try { 
+                                // PERBAIKAN: Membungkus data ke dalam bentuk string untuk menghindari Infinite Loop pada Reactivity Alpine.js
+                                await setDoc(docRef, { payload: JSON.stringify(dataToSave) }); 
+                            } 
                             catch(e) { console.error("Gagal auto-save ke cloud:", e); }
                         };
                     } catch (err) {
