@@ -327,6 +327,64 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="bg-white rounded-xl shadow-sm border mt-6 flex flex-col">
+                        <div class="p-4 border-b bg-slate-50 rounded-t-xl shrink-0">
+                            <h3 class="font-bold text-slate-800"><i class="fas fa-table mr-2 text-blue-500"></i> Rekap Pendapatan Harian Berdasarkan Jenis</h3>
+                        </div>
+                        <div class="overflow-x-auto table-scroll flex-1 p-4">
+                            <table class="min-w-full text-sm border rounded-lg">
+                                <thead class="bg-slate-100 border-b">
+                                    <tr>
+                                        <th class="py-2.5 px-4 text-left font-bold">Tanggal</th>
+                                        <th class="py-2.5 px-4 text-left font-bold">Rincian Jenis Pendapatan</th>
+                                        <th class="py-2.5 px-4 text-right font-bold">Total Harian (Rp)</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <template x-for="recap in dailyRevenueRecap" :key="recap.tanggal">
+                                        <tr class="hover:bg-slate-50 transition">
+                                            <td class="py-3 px-4 font-bold text-slate-800 align-top" x-text="recap.tanggal"></td>
+                                            <td class="py-3 px-4 align-top">
+                                                <template x-for="(detail, index) in recap.details" :key="index">
+                                                    <div class="flex justify-between items-center text-slate-600 mb-2 border-b border-slate-100 pb-2 last:border-0 last:pb-0 last:mb-0">
+                                                        <div>
+                                                            <div class="font-bold text-slate-700" x-text="detail.jenis"></div>
+                                                            <div class="text-xs text-slate-500 mt-0.5">
+                                                                <span class="bg-slate-200 px-1.5 py-0.5 rounded border border-slate-300 font-semibold text-slate-700 shadow-sm" x-text="detail.metode"></span> 
+                                                                <span class="ml-1 font-medium">&bull; <span x-text="detail.count"></span> Transaksi</span>
+                                                            </div>
+                                                        </div>
+                                                        <span class="font-bold text-emerald-600" x-text="formatRupiah(detail.nominal)"></span>
+                                                    </div>
+                                                </template>
+                                                
+                                                <!-- Tambahan Breakdown Tipe Sewa -->
+                                                <div x-show="Object.keys(recap.rentSummary || {}).length > 0" class="mt-3 pt-2 border-t border-slate-200 border-dashed">
+                                                    <p class="text-[10px] font-bold text-slate-400 mb-1.5 uppercase tracking-wider"><i class="fas fa-bed mr-1"></i> Rincian Tipe Sewa Kamar:</p>
+                                                    <template x-for="type in Object.keys(recap.rentSummary)" :key="type">
+                                                        <div class="flex justify-between items-center text-xs mb-1 bg-slate-50/50 p-1 rounded">
+                                                            <div class="text-slate-600 font-medium">
+                                                                - <span x-text="type"></span> 
+                                                                <span class="font-bold text-slate-400 text-[10px] ml-1">(<span x-text="recap.rentSummary[type].count"></span> Kamar)</span>
+                                                            </div>
+                                                            <div class="font-bold text-emerald-600" x-text="formatRupiah(recap.rentSummary[type].total)"></div>
+                                                        </div>
+                                                    </template>
+                                                </div>
+                                                <!-- Akhir Tambahan -->
+                                            </td>
+                                            <td class="py-3 px-4 text-right font-extrabold text-blue-700 align-top text-base" x-text="formatRupiah(recap.total)"></td>
+                                        </tr>
+                                    </template>
+                                    <tr x-show="dailyRevenueRecap.length === 0">
+                                        <td colspan="3" class="py-6 text-center text-slate-400 font-medium italic">Belum ada data pendapatan untuk periode ini.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
 
                 <div x-show="activeTab === 'receptionist'" class="space-y-4 max-w-7xl mx-auto flex flex-col h-[calc(100vh-100px)]">
@@ -1791,6 +1849,35 @@
             </div>
         </div>
 
+        <div x-show="modals.printTrans" x-cloak class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+            <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border relative text-center">
+                <h3 class="text-xl font-bold text-slate-800 mb-2">Pilih Model Cetak Dokumen</h3>
+                <p class="text-sm text-slate-500 mb-6">Pilih format cetak/print yang sesuai untuk bukti transaksi ini.</p>
+                
+                <div class="space-y-3">
+                    <button @click="executePrintTrans('thermal')" class="w-full flex items-center p-4 border rounded-xl hover:bg-slate-50 hover:border-slate-400 transition text-left group">
+                        <div class="bg-slate-100 text-slate-600 p-3 rounded-lg group-hover:bg-blue-100 group-hover:text-blue-600 transition"><i class="fas fa-receipt text-xl w-6 text-center"></i></div>
+                        <div class="ml-4">
+                            <h4 class="font-bold text-slate-800">Model Thermal (Struk)</h4>
+                            <p class="text-xs text-slate-500 mt-1">Format struk sempit untuk printer kasir.</p>
+                        </div>
+                    </button>
+                    
+                    <button @click="executePrintTrans('formal')" class="w-full flex items-center p-4 border rounded-xl hover:bg-slate-50 hover:border-slate-400 transition text-left group">
+                        <div class="bg-slate-100 text-slate-600 p-3 rounded-lg group-hover:bg-emerald-100 group-hover:text-emerald-600 transition"><i class="fas fa-file-invoice text-xl w-6 text-center"></i></div>
+                        <div class="ml-4">
+                            <h4 class="font-bold text-slate-800">Model Formal A4 (Standar)</h4>
+                            <p class="text-xs text-slate-500 mt-1">Format invoice/nota resmi ukuran A4.</p>
+                        </div>
+                    </button>
+                </div>
+                
+                <div class="mt-6 pt-4 border-t">
+                    <button @click="modals.printTrans = false; selectedTrans = null; selectedTransType = null;" class="px-6 py-2 bg-slate-100 text-slate-700 font-bold rounded-lg hover:bg-slate-200 transition">Batal</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
@@ -1802,8 +1889,8 @@
                 reportSubTab: 'labarugi', frontDeskSubTab: 'status', posSubTab: 'kasir', inventorySubTab: 'stock', accountingSubTab: 'input', settingsSubTab: 'branch',
                 
                 filterDate: { start: '', end: '' }, historyFilter: { start: '', end: '', search: '' }, historySort: { by: 'date', order: 'desc' }, posSearch: '', inventorySearch: '',
-                modals: { checkin: false, lunas: false, posPayment: false, restore: false, reset: false, coa: false, user: false, requestStock: false, restock: false, branch: false, inventoryItem: false, room: false, attachment: false, printJurnal: false, printPo: false },
-                attachmentUrl: '', selectedJurnalToPrint: null, selectedPoToPrint: null,
+                modals: { checkin: false, lunas: false, posPayment: false, restore: false, reset: false, coa: false, user: false, requestStock: false, restock: false, branch: false, inventoryItem: false, room: false, attachment: false, printJurnal: false, printPo: false, printTrans: false },
+                attachmentUrl: '', selectedJurnalToPrint: null, selectedPoToPrint: null, selectedTrans: null, selectedTransType: null,
                 customDialog: { show: false, message: '', isConfirm: false, onConfirm: null },
                 
                 checkinForm: {}, lunasForm: {}, posPaymentForm: {}, coaForm: {}, userForm: { branchIds: [], access: [] }, requestForm: {}, restockForm: {}, branchForm: {}, inventoryItemForm: {}, roomForm: {},
@@ -1956,7 +2043,7 @@
                     filteredJurnals.forEach(j => {
                         j.entries.forEach(e => {
                             let coa = this.coas.find(c => c.name === e.akunName);
-                            if (coa && coa.kategori === 'Aset Lancar' && e.tipe === 'Debit' && coa.name !== 'Piutang Usaha') {
+                            if (coa && coa.kategori === 'Aset Lancar' && e.tipe === 'Debit' && (coa.name.toLowerCase().includes('kas') || coa.name.toLowerCase().includes('bank'))) {
                                 totalIn += e.nominal; breakdown[e.akunName] = (breakdown[e.akunName] || 0) + e.nominal;
                             }
                         });
@@ -1979,7 +2066,7 @@
                     filtered.forEach(j => {
                         j.entries.forEach(e => {
                             let coa = this.coas.find(c => c.name === e.akunName);
-                            if (coa && coa.kategori === 'Aset Lancar' && e.tipe === 'Debit' && coa.name !== 'Piutang Usaha') {
+                            if (coa && coa.kategori === 'Aset Lancar' && e.tipe === 'Debit' && (coa.name.toLowerCase().includes('kas') || coa.name.toLowerCase().includes('bank'))) {
                                 dates[j.tanggal] = (dates[j.tanggal] || 0) + e.nominal;
                             }
                         });
@@ -2116,6 +2203,64 @@
                     });
                     let netOperating = operatingIn - operatingOut;
                     return { operatingIn, operatingOut, netOperating, netCashChange: netOperating };
+                },
+
+                get dailyRevenueRecap() {
+                    let recap = {};
+                    let filtered = this.jurnals.filter(j => {
+                        let dMatch = (!this.filterDate.start || j.tanggal >= this.filterDate.start) && (!this.filterDate.end || j.tanggal <= this.filterDate.end);
+                        return this.isBranchMatch(j.branchId) && dMatch;
+                    });
+                    
+                    let filteredRooms = this.roomHistory.filter(h => {
+                        let dMatch = (!this.filterDate.start || h.inDate >= this.filterDate.start) && (!this.filterDate.end || h.inDate <= this.filterDate.end);
+                        return this.isBranchMatch(h.branchId) && dMatch;
+                    });
+                    
+                    filtered.forEach(j => {
+                        let revEntries = j.entries.filter(e => {
+                            let coa = this.coas.find(c => c.name === e.akunName);
+                            return coa && coa.kategori === 'Pendapatan' && e.tipe === 'Kredit';
+                        });
+                        
+                        let payEntries = j.entries.filter(e => e.tipe === 'Debit');
+                        
+                        if (revEntries.length > 0) {
+                            if (!recap[j.tanggal]) {
+                                recap[j.tanggal] = { tanggal: j.tanggal, total: 0, details: [], rentSummary: {} };
+                            }
+                            
+                            revEntries.forEach(rev => {
+                                let paymentMethod = payEntries.length > 0 ? payEntries[0].akunName : 'Piutang / Lainnya';
+                                
+                                let existingDetail = recap[j.tanggal].details.find(d => d.jenis === rev.akunName && d.metode === paymentMethod);
+                                if (existingDetail) {
+                                    existingDetail.nominal += rev.nominal;
+                                    existingDetail.count += 1;
+                                } else {
+                                    recap[j.tanggal].details.push({
+                                        jenis: rev.akunName,
+                                        metode: paymentMethod,
+                                        nominal: rev.nominal,
+                                        count: 1
+                                    });
+                                }
+                                recap[j.tanggal].total += rev.nominal;
+                            });
+                        }
+                    });
+                    
+                    filteredRooms.forEach(r => {
+                        if (recap[r.inDate]) {
+                            if (!recap[r.inDate].rentSummary[r.type]) {
+                                recap[r.inDate].rentSummary[r.type] = { count: 0, total: 0 };
+                            }
+                            recap[r.inDate].rentSummary[r.type].count += 1;
+                            recap[r.inDate].rentSummary[r.type].total += r.price;
+                        }
+                    });
+                    
+                    return Object.values(recap).sort((a,b) => b.tanggal.localeCompare(a.tanggal));
                 },
 
                 getRoomsByType(type) { return this.rooms.filter(r => r.type === type && this.isBranchMatch(r.branchId)); },
@@ -2366,48 +2511,107 @@
                         this.modals.printJurnal = true;
                         return;
                     }
+                    
+                    this.selectedTransType = type;
+                    this.selectedTrans = item;
+                    this.modals.printTrans = true;
+                },
+
+                executePrintTrans(modelType) {
+                    let type = this.selectedTransType;
+                    let item = this.selectedTrans;
+                    if(!item) return;
 
                     let branchName = this.getBranchName(item.branchId || this.activeBranch);
-                    let html = `<div style="font-family: 'Courier New', Courier, monospace; max-width: 300px; margin: 0 auto; padding: 20px; border: 1px dashed #ccc;">`;
-                    html += `<h2 style="text-align: center; margin-bottom: 5px;">AG RESIDENCE</h2>`;
-                    html += `<p style="text-align: center; font-size: 12px; margin-top: 0;">${branchName}</p>`;
-                    html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
+                    let html = '';
                     
-                    if (type === 'kamar') {
-                        html += `<h3 style="text-align: center; margin: 5px 0;">VOUCHER CHECK-IN</h3>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Tgl Masuk: ${item.inDate}</p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Kamar: <b>${item.roomNo}</b></p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Tamu: ${item.guestName}</p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Paket: ${item.type}</p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Tgl Keluar: ${item.outDate}</p>`;
+                    if (modelType === 'thermal') {
+                        html += `<div style="font-family: 'Courier New', Courier, monospace; max-width: 300px; margin: 0 auto; padding: 20px; border: 1px dashed #ccc;">`;
+                        html += `<h2 style="text-align: center; margin-bottom: 5px;">AG RESIDENCE</h2>`;
+                        html += `<p style="text-align: center; font-size: 12px; margin-top: 0;">${branchName}</p>`;
                         html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
-                        html += `<h3 style="text-align: right; margin: 5px 0;">Total: Rp ${this.formatRupiah(item.price)}</h3>`;
-                    } else if (type === 'pos') {
-                        html += `<h3 style="text-align: center; margin: 5px 0;">STRUK POS RESTO</h3>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Tgl: ${item.tanggal}</p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Ref: ${item.desc}</p>`;
-                        html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
-                        html += `<h3 style="text-align: right; margin: 5px 0;">Total: Rp ${this.formatRupiah(item.total)}</h3>`;
-                    } else if (type === 'gudang') {
-                        html += `<h3 style="text-align: center; margin: 5px 0;">VOUCHER PEMBELIAN</h3>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Tgl: ${item.date}</p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Supplier: ${item.supplier}</p>`;
-                        html += `<p style="font-size: 12px; margin: 5px 0;">Item: ${item.itemName} (${item.qty} ${item.unit})</p>`;
-                        html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
-                        html += `<h3 style="text-align: right; margin: 5px 0;">Total: Rp ${this.formatRupiah(item.totalPrice)}</h3>`;
+                        
+                        if (type === 'kamar') {
+                            html += `<h3 style="text-align: center; margin: 5px 0;">VOUCHER CHECK-IN</h3>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Tgl Masuk: ${item.inDate}</p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Kamar: <b>${item.roomNo}</b></p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Tamu: ${item.guestName}</p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Paket: ${item.type}</p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Tgl Keluar: ${item.outDate}</p>`;
+                            html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
+                            html += `<h3 style="text-align: right; margin: 5px 0;">Total: Rp ${this.formatRupiah(item.price)}</h3>`;
+                        } else if (type === 'pos') {
+                            html += `<h3 style="text-align: center; margin: 5px 0;">STRUK POS RESTO</h3>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Tgl: ${item.tanggal}</p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Ref: ${item.desc}</p>`;
+                            html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
+                            html += `<h3 style="text-align: right; margin: 5px 0;">Total: Rp ${this.formatRupiah(item.total)}</h3>`;
+                        } else if (type === 'gudang') {
+                            html += `<h3 style="text-align: center; margin: 5px 0;">VOUCHER PEMBELIAN</h3>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Tgl: ${item.date}</p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Supplier: ${item.supplier}</p>`;
+                            html += `<p style="font-size: 12px; margin: 5px 0;">Item: ${item.itemName} (${item.qty} ${item.unit})</p>`;
+                            html += `<hr style="border: 1px dashed #000; margin: 10px 0;" />`;
+                            html += `<h3 style="text-align: right; margin: 5px 0;">Total: Rp ${this.formatRupiah(item.totalPrice)}</h3>`;
+                        }
+                        
+                        html += `<p style="text-align: center; font-size: 10px; margin-top: 20px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`;
+                        html += `</div>`;
+                    } else if (modelType === 'formal') {
+                        html += `<div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">`;
+                        html += `<div style="display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 10px;">`;
+                        html += `<div><h2>AG RESIDENCE</h2><p style="margin:0;">${branchName}</p></div>`;
+                        
+                        if (type === 'kamar') {
+                            html += `<div style="text-align: right;"><h2>INVOICE CHECK-IN</h2><p style="margin:0;">Tgl: ${item.inDate}</p></div>`;
+                            html += `</div>`;
+                            html += `<div style="margin-top: 20px;">`;
+                            html += `<p><strong>Nama Tamu:</strong> ${item.guestName}</p>`;
+                            html += `<p><strong>Kamar:</strong> ${item.roomNo} (${item.type})</p>`;
+                            html += `<p><strong>Periode:</strong> ${item.inDate} s/d ${item.outDate}</p>`;
+                            html += `<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">`;
+                            html += `<thead><tr><th style="border: 1px solid #000; padding: 8px; text-align: left;">Deskripsi Transaksi</th><th style="border: 1px solid #000; padding: 8px; text-align: right;">Total (Rp)</th></tr></thead>`;
+                            html += `<tbody><tr><td style="border: 1px solid #000; padding: 8px;">Sewa Kamar ${item.roomNo} - Paket ${item.type}</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">${this.formatRupiah(item.price)}</td></tr></tbody>`;
+                            html += `</table>`;
+                        } else if (type === 'pos') {
+                            html += `<div style="text-align: right;"><h2>INVOICE POS & RESTO</h2><p style="margin:0;">Tgl: ${item.tanggal}</p></div>`;
+                            html += `</div>`;
+                            html += `<div style="margin-top: 20px;">`;
+                            html += `<p><strong>Referensi Pesanan:</strong> ${item.desc}</p>`;
+                            html += `<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">`;
+                            html += `<thead><tr><th style="border: 1px solid #000; padding: 8px; text-align: left;">Deskripsi Transaksi</th><th style="border: 1px solid #000; padding: 8px; text-align: right;">Total (Rp)</th></tr></thead>`;
+                            html += `<tbody><tr><td style="border: 1px solid #000; padding: 8px;">Pesanan Restoran (${item.desc})</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">${this.formatRupiah(item.total)}</td></tr></tbody>`;
+                            html += `</table>`;
+                        } else if (type === 'gudang') {
+                            html += `<div style="text-align: right;"><h2>BUKTI PEMBELIAN INVENTARIS</h2><p style="margin:0;">Tgl: ${item.date}</p></div>`;
+                            html += `</div>`;
+                            html += `<div style="margin-top: 20px;">`;
+                            html += `<p><strong>Supplier/Toko:</strong> ${item.supplier}</p>`;
+                            html += `<table style="width: 100%; border-collapse: collapse; margin-top: 15px;">`;
+                            html += `<thead><tr><th style="border: 1px solid #000; padding: 8px; text-align: left;">Nama Barang</th><th style="border: 1px solid #000; padding: 8px; text-align: center;">Qty (Jumlah)</th><th style="border: 1px solid #000; padding: 8px; text-align: right;">Total (Rp)</th></tr></thead>`;
+                            html += `<tbody><tr><td style="border: 1px solid #000; padding: 8px;">${item.itemName}</td><td style="border: 1px solid #000; padding: 8px; text-align: center;">${item.qty} ${item.unit}</td><td style="border: 1px solid #000; padding: 8px; text-align: right;">${this.formatRupiah(item.totalPrice)}</td></tr></tbody>`;
+                            html += `</table>`;
+                        }
+                        
+                        html += `</div>`;
+                        html += `<table style="width: 100%; margin-top: 50px; text-align: center;">`;
+                        html += `<tr><td style="width:33%;">Staf Bertugas,</td><td style="width:34%;"></td><td style="width:33%;">Pelanggan / Penerima,</td></tr>`;
+                        html += `<tr><td style="height: 80px;"></td><td></td><td></td></tr>`;
+                        html += `<tr><td>( _______________ )</td><td></td><td>( _______________ )</td></tr>`;
+                        html += `</table>`;
+                        html += `</div>`;
                     }
-                    
-                    html += `<p style="text-align: center; font-size: 10px; margin-top: 20px;">Dicetak: ${new Date().toLocaleString('id-ID')}</p>`;
-                    html += `</div>`;
-                    
-                    let printWin = window.open('', '_blank', 'width=400,height=600');
+
+                    let printWin = window.open('', '_blank', 'width=800,height=600');
                     if (printWin) {
                         printWin.document.open();
-                        printWin.document.write('<html><head><title>Cetak Voucher / Struk</title></head><body onload="window.print(); window.close();">' + html + '</body></html>');
+                        printWin.document.write('<html><head><title>Cetak Dokumen - ' + modelType + '</title></head><body onload="window.print(); window.close();">' + html + '</body></html>');
                         printWin.document.close();
                     } else {
                         this.appAlert('Izinkan pop-ups browser Anda.');
                     }
+                    
+                    this.modals.printTrans = false;
                 },
 
                 openPrintPoModal(req) {
