@@ -1100,7 +1100,7 @@
 
                                         <tr class="bg-slate-800 text-white">
                                             <td class="py-3 px-4 font-extrabold text-lg rounded-l-lg pl-4 mt-4">KENAIKAN / (PENURUNAN) KAS BERSIH</td>
-                                            <td class="py-3 px-4 text-right font-extrabold text-lg rounded-r-lg mt-4" :class="cashFlowReport.netCashChange < 0 ? 'text-red-400' : 'textemerald-400'" x-text="formatRupiah(cashFlowReport.netCashChange)"></td>
+                                            <td class="py-3 px-4 text-right font-extrabold text-lg rounded-r-lg mt-4" :class="cashFlowReport.netCashChange < 0 ? 'text-red-400' : 'text-emerald-400'" x-text="formatRupiah(cashFlowReport.netCashChange)"></td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -2031,12 +2031,19 @@
                     
                     this.timerInterval = setInterval(() => { this.currentTime = new Date(); }, 60000);
                     
-                    // Inisialisasi Cloud Storage
-                    if (window.initCloudStorage) {
-                        window.initCloudStorage(this);
-                    } else {
-                        this.isDataLoaded = true;
-                    }
+                    // Inisialisasi Cloud Storage dengan sistem antrean (Mencegah Race Condition Script Module)
+                    let checkRetries = 0;
+                    const checkAndInitCloud = () => {
+                        if (window.initCloudStorage) {
+                            window.initCloudStorage(this);
+                        } else if (checkRetries < 20) { // Tunggu max 2 detik
+                            checkRetries++;
+                            setTimeout(checkAndInitCloud, 100);
+                        } else {
+                            this.isDataLoaded = true;
+                        }
+                    };
+                    checkAndInitCloud();
                     
                     // Trigger Auto-Save Background Sinkronisasi (Setiap 2 Detik)
                     setInterval(() => { this.triggerAutoSave(); }, 2000);
@@ -2055,12 +2062,12 @@
                     
                     if (this.lastSavedState === '') {
                         this.lastSavedState = currentState;
-                        if (window.dataWasLoadedFromCloud === false) window.saveToCloud(JSON.parse(currentState));
+                        if (window.dataWasLoadedFromCloud === false) window.saveToCloud(currentState);
                         return;
                     }
 
                     if (this.lastSavedState !== currentState) {
-                        window.saveToCloud(JSON.parse(currentState));
+                        window.saveToCloud(currentState);
                         this.lastSavedState = currentState;
                     }
                 },
