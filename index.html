@@ -2040,6 +2040,17 @@
                             checkRetries++;
                             setTimeout(checkAndInitCloud, 100);
                         } else {
+                            // FALLBACK LOCAL STORAGE: Memuat data dari memori browser jika Cloud tidak tersedia
+                            const localData = localStorage.getItem('ag_residence_data');
+                            if (localData) {
+                                try {
+                                    const parsedData = JSON.parse(localData);
+                                    Object.keys(parsedData).forEach(key => {
+                                        if(this[key] !== undefined) this[key] = parsedData[key];
+                                    });
+                                    this.lastSavedState = localData;
+                                } catch(e) { console.error("Gagal memuat data lokal:", e); }
+                            }
                             this.isDataLoaded = true;
                         }
                     };
@@ -2050,7 +2061,7 @@
                 },
 
                 triggerAutoSave() {
-                    if (!this.isDataLoaded || !window.saveToCloud) return;
+                    if (!this.isDataLoaded) return;
                     
                     const currentState = JSON.stringify({
                         branches: this.branches, users: this.users, coas: this.coas, 
@@ -2062,12 +2073,17 @@
                     
                     if (this.lastSavedState === '') {
                         this.lastSavedState = currentState;
-                        if (window.dataWasLoadedFromCloud === false) window.saveToCloud(currentState);
+                        if (window.saveToCloud && window.dataWasLoadedFromCloud === false) {
+                            window.saveToCloud(currentState);
+                        } else if (!window.saveToCloud) {
+                            localStorage.setItem('ag_residence_data', currentState);
+                        }
                         return;
                     }
 
                     if (this.lastSavedState !== currentState) {
-                        window.saveToCloud(currentState);
+                        if (window.saveToCloud) window.saveToCloud(currentState);
+                        else localStorage.setItem('ag_residence_data', currentState);
                         this.lastSavedState = currentState;
                     }
                 },
