@@ -1885,18 +1885,26 @@
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
+        // Mengambil App ID dari Environment Server
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'ag-residence-app';
-        const configStr = typeof __firebase_config !== 'undefined' ? __firebase_config : null;
         
-        if (configStr) {
-            try {
-                const firebaseConfig = JSON.parse(configStr);
+        try {
+            // Membaca Konfigurasi Firebase asli dari Environment Server secara otomatis
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            
+            if (!firebaseConfig) {
+                console.warn("Info: Firebase belum dikonfigurasi oleh server. Sistem berjalan menggunakan LocalStorage (Offline Mode).");
+                window.initCloudStorage = async (context) => {
+                    context.isDataLoaded = true; 
+                };
+            } else {
                 const app = initializeApp(firebaseConfig);
                 const auth = getAuth(app);
                 const db = getFirestore(app);
 
                 window.initCloudStorage = async (context) => {
                     try {
+                        // Proses Autentikasi Super Aman
                         if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                             await signInWithCustomToken(auth, __initial_auth_token);
                         } else {
@@ -1906,13 +1914,12 @@
                         const user = auth.currentUser;
                         if (!user) return;
 
-                        // PERBAIKAN: Format jumlah Path Firestore harus genap untuk Dokumen (6 Segmen)
-                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'state', 'erp_state');
+                        // Rute penyimpanan Database Publik (Standard Server Cloud)
+                        const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'erp_collection', 'erp_state');
                         
-                        // GUNAKAN ONSNAPSHOT: Membaca perubahan data secara Real-Time
+                        // GUNAKAN ONSNAPSHOT: Membaca perubahan data secara Real-Time Antar-User
                         onSnapshot(docRef, (docSnap) => {
                             if (docSnap.exists()) {
-                                // PERBAIKAN: Menarik format String Payload murni agar sistem tidak terganggu perubahan susunan Object di Cloud
                                 const payloadStr = docSnap.data().payload;
                                 
                                 if (payloadStr && context.lastSavedState !== payloadStr) {
@@ -1935,7 +1942,7 @@
                         window.saveToCloud = async (dataToSave) => {
                             if (!auth.currentUser) return;
                             try { 
-                                // PERBAIKAN: Membungkus data ke dalam bentuk string untuk menghindari Infinite Loop pada Reactivity Alpine.js
+                                // Simpan (Auto-save) Payload Data Secara Instan
                                 await setDoc(docRef, { payload: JSON.stringify(dataToSave) }); 
                             } 
                             catch(e) { console.error("Gagal auto-save ke cloud:", e); }
@@ -1945,9 +1952,9 @@
                         context.isDataLoaded = true;
                     }
                 };
-            } catch (err) { 
-                console.error("Config Firebase tidak valid:", err); 
             }
+        } catch (err) { 
+            console.error("Config Firebase tidak valid:", err); 
         }
     </script>
 
